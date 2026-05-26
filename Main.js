@@ -1,5 +1,7 @@
 import Render from "./Rendering.js";
 import Building from "./Building.js";
+import Flying from "./Flying.js";
+import Values from "./Values.js";
 
 class Main {
 
@@ -7,21 +9,12 @@ class Main {
 
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
-        this.render = new Render(document, this.ctx, this.canvas, window.screen.height, window.screen.width);
+        Render.initialize(document, this.ctx, this.canvas);
 
-        this.keys = {};
         this.keyBinds();
         this.buildMode = true;
         this.previousO = false;
         this.previousB = false;
-
-        this.blockSize = window.screen.height/10;
-        this.xOffset = (window.screen.width - window.screen.height)/2;
-
-        this.mouseX;
-        this.mouseY;
-        this.mouseRow;
-        this.mouseColumn;
         
         this.loop = this.loop.bind(this);
 
@@ -29,11 +22,11 @@ class Main {
 
     keyBinds() {
         window.addEventListener('keydown', e => {
-            this.keys[e.key.toLowerCase()] = true;
+            Values.keys[e.key.toLowerCase()] = true;
         });
 
         window.addEventListener('keyup', e => {
-            this.keys[e.key.toLowerCase()] = false;
+            Values.keys[e.key.toLowerCase()] = false;
         });
 
         document.addEventListener('mousemove', (event) => {
@@ -50,13 +43,13 @@ class Main {
 
             // this.mouseX = canvasX - this.canvas.width/2;//(canvasX - this.render.offsetX) / this.render.scale + this.render.camera.x;
             // this.mouseY = canvasY - this.canvas.height/2;//(canvasY - this.render.offsetY) / this.render.scale + this.render.camera.y;
-            this.mouseX = event.clientX;
-            this.mouseY = event.clientY;
+            Values.mouseX = event.clientX;
+            Values.mouseY = event.clientY;
 
-            this.mouseColumn = Math.floor(this.mouseX/this.blockSize) - Math.floor(this.xOffset/this.blockSize) - 1;
-            this.mouseRow = Math.floor(this.mouseY/this.blockSize); 
-            this.mouseColumn = Math.min(9, Math.max(0, this.mouseColumn));
-            this.mouseRow = Math.min(9, Math.max(0, this.mouseRow));
+            Values.mouseColumn = Math.floor(Values.mouseX/Values.blockSize - Values.xOffset/Values.blockSize);
+            Values.mouseRow = Math.floor(Values.mouseY/Values.blockSize); 
+            Values.mouseColumn = Math.min(9, Math.max(0, Values.mouseColumn));
+            Values.mouseRow = Math.min(9, Math.max(0, Values.mouseRow));
 
         });
 
@@ -64,43 +57,25 @@ class Main {
             event.preventDefault();
         });
 
-
         document.addEventListener('mousedown', (event) => {
             event.preventDefault();
             switch (event.button) {
-                case 0: this.leftClick = true; break;
-                case 2: this.rightClick = true; break;
+                case 0: Values.leftClick = true; break;
+                case 2: Values.rightClick = true; break;
             }
         });
 
         document.addEventListener('mouseup', (event) => {
             event.preventDefault();
             switch (event.button) {
-                case 0: this.leftClick = false; break;
-                case 2: this.rightClick = false; break;
+                case 0: Values.leftClick = false; break;
+                case 2: Values.rightClick = false; break;
             }
         });
     }
 
-    handleGraphics() {
-        this.render.Update(this.mouseRow, this.mouseColumn);
-
-        for (var row = 0; row < Building.areaMatrix.length; row++) {
-            for (var column = 0; column < Building.areaMatrix[row].length; column++) {
-                switch (Building.areaMatrix[row][column]) {
-
-                    case 0: if(this.buildMode) this.render.Empty(column, row); break;
-                    case 1: this.render.Wall(column, row); break;
-                    case 2: this.render.Floor(column, row); break;
-                    case 3: this.render.BasicThruster(column, row); break;
-
-                }
-            }
-        }
-    }
-
     handleFullscreenRequests() {
-        if (this.keys["o"] && !this.previousO) {
+        if (Values.keys["o"] && !this.previousO) {
             if (document.fullscreenElement) {
                 document.exitFullscreen()
             } else {
@@ -116,28 +91,35 @@ class Main {
                 }
             }
         } 
-        this.previousO = this.keys["o"];
+        this.previousO = Values.keys["o"];
     }
 
     modeSwitch() {
-        if (this.keys["b"] && !this.previousB) {
+        if (Values.keys["b"] && !this.previousB) {
             this.buildMode = !this.buildMode;
             console.log("Build Mode:" + this.buildMode);
+            Flying.initialize();
         }
-        this.previousB = this.keys["b"];
+        this.previousB = Values.keys["b"];
     }
 
-    loop() {
-        this.handleGraphics();
+    loop(currentTime) {
         this.handleFullscreenRequests();
         this.modeSwitch();
 
         if (this.buildMode) {
-            Building.Update(this.mouseRow, this.mouseColumn, this.leftClick, this.rightClick, this.keys);
+            Building.loop();
+        } else {
+            Flying.loop();
         }
-        
+
+        Render.loop(this.buildMode);
+
+        Values.deltaTime = (currentTime - this.lastTime) / 1000;
+        this.lastTime = currentTime;
 
         requestAnimationFrame(this.loop);
+        
     }
 
 }
